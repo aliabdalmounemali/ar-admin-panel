@@ -29,22 +29,29 @@ function App() {
 
   // ⭐ دالة الدمج: تدمج كل الصور في المتصفح وترفع ملف .mind للسيرفر
   const compileAndUploadMindFile = async (allTargets) => {
-    setStatus('🔄 جاري دمج الصور وإنشاء ملف التعرف (قد يستغرق 30-60 ثانية)...');
+    setStatus('🔄 جاري تحميل محرك الدمج...');
     
     try {
-      // البحث عن مكتبة MindAR Compiler في المتصفح
+      // التأكد من توفر مكتبة الدمج في المتصفح 
+      // (لاحظ أننا ننتظر قليلاً لو لم تكن جاهزة لأنها تُحمل كـ module)
       let CompilerClass = null;
-      if (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler) {
-        CompilerClass = window.MINDAR.IMAGE.Compiler;
-      } else if (window.MindARCompiler) {
-        CompilerClass = window.MindARCompiler;
+      
+      let attempts = 0;
+      while(!CompilerClass && attempts < 10) {
+        if (window.MINDARObject && window.MINDARObject.Compiler) {
+           CompilerClass = window.MINDARObject.Compiler;
+        } else {
+           await new Promise(r => setTimeout(r, 500));
+           attempts++;
+        }
       }
 
       if (!CompilerClass) {
-        console.error('MINDAR object:', window.MINDAR);
-        setStatus('❌ مكتبة MindAR Compiler غير محملة! تأكد من وجود السكريبت في index.html');
+        setStatus('❌ فشل تحميل محرك MindAR! تأكد من اتصالك بالإنترنت وجرب تحديث الصفحة.');
         return;
       }
+
+      setStatus('🔄 جاري دمج الصور وإنشاء ملف التعرف (قد يستغرق 30-60 ثانية)...');
 
       // جلب كل الصور الموجودة على السيرفر وتحويلها لعناصر Image
       const imageElements = [];
@@ -61,7 +68,7 @@ function App() {
 
       if (imageElements.length === 0) return;
 
-      // استخدام مكتبة MindAR المحملة في index.html لدمج الصور
+      // استخدام محرك MindAR لدمج الصور
       const compiler = new CompilerClass();
       await compiler.compileImageTargets(imageElements, (progress) => {
         setStatus(`🔄 جاري الدمج: ${Math.round(progress)}%`);
@@ -94,12 +101,11 @@ function App() {
     formData.append('model', modelFile);
 
     try {
-      // الخطوة 1: رفع الصورة والمجسم للسيرفر
       const res = await axios.post(`${API_URL}/api/targets`, formData);
       const updatedTargets = [...targets, res.data];
       setTargets(updatedTargets);
       
-      // الخطوة 2: دمج كل الصور في المتصفح ورفع ملف .mind للسيرفر
+      // دمج كل الصور في المتصفح ورفع ملف .mind للسيرفر
       await compileAndUploadMindFile(updatedTargets);
 
       setName('');
@@ -122,7 +128,6 @@ function App() {
       const updatedTargets = res.data.targets;
       setTargets(updatedTargets);
       
-      // إعادة الدمج بعد الحذف (إذا بقيت صور)
       if (updatedTargets.length > 0) {
         await compileAndUploadMindFile(updatedTargets);
       } else {
