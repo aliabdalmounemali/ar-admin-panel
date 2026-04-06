@@ -27,12 +27,77 @@ function App() {
     }
   };
 
+  // ⭐ دالة الدمج: تدمج كل الصور في المتصفح وترفع ملف .mind للسيرفر
+  const compileAndUploadMindFile = async (allTargets) => {
+    setStatus('🔄 جاري تحميل محرك الدمج...');
+    
+    try {
+      // تحميل المحرك ديناميكياً من حزمة mind-ar (مبنية بواسطة Vite)
+      let CompilerClass;
+      try {
+        const module = await import('mind-ar/src/image-target/compiler');
+        CompilerClass = module.Compiler;
+      } catch (e1) {
+        console.error('مسار 1 فشل:', e1);
+        try {
+          const module = await import('mind-ar/dist/mindar-image.prod.js');
+          CompilerClass = module.Compiler || (module.default && module.default.Compiler);
+        } catch (e2) {
+          console.error('مسار 2 فشل:', e2);
+          if (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler) {
+            CompilerClass = window.MINDAR.IMAGE.Compiler;
+          }
+        }
+      }
+
+      if (!CompilerClass) {
+        setStatus('❌ فشل تحميل محرك MindAR! جرب تحديث الصفحة.');
+        return;
+      }
+
+      setStatus('🔄 جاري دمج الصور وإنشاء ملف التعرف (قد يستغرق 30-60 ثانية)...');
+
+      // جلب كل الصور الموجودة على السيرفر وتحويلها لعناصر Image
+      const imageElements = [];
+      for (const target of allTargets) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = () => reject(new Error(`فشل تحميل الصورة: ${target.imageUrl}`));
+          img.src = `${API_URL}${target.imageUrl}`;
+        });
+        imageElements.push(img);
+      }
+
+      if (imageElements.length === 0) return;
+
+      // استخدام محرك MindAR لدمج الصور
+      const compiler = new CompilerClass();
+      await compiler.compileImageTargets(imageElements, (progress) => {
+        setStatus(`🔄 جاري الدمج: ${Math.round(progress)}%`);
+      });
+
+      // تصدير الملف النهائي ورفعه للسيرفر
+      const exportedBuffer = await compiler.exportData();
+      const blob = new Blob([exportedBuffer]);
+      const mindFormData = new FormData();
+      mindFormData.append('mind', blob, 'targets.mind');
+
+      await axios.post(`${API_URL}/api/compile`, mindFormData);
+      setStatus('✅ تم الدمج والرفع بنجاح! التطبيق جاهز للاستخدام الآن.');
+    } catch (err) {
+      console.error('خطأ في الدمج:', err);
+      setStatus(`❌ خطأ في الدمج: ${err.message}`);
+    }
+  };
+
   const handleTargetUpload = async (e) => {
     e.preventDefault();
     if (!imageFile || !modelFile) return alert('يجب اختيار صورة لتعرف الكاميرا عليها ومجسم لعرضه');
     
     setLoading(true);
-    setStatus('جاري رفع الصور... (الدمج سيتم أوتوماتيكياً بواسطة السيرفر السحابي)');
+    setStatus('جاري رفع الملفات للسيرفر...');
 
     const formData = new FormData();
     formData.append('name', name || `عنصر ${targets.length + 1}`);
@@ -41,13 +106,16 @@ function App() {
 
     try {
       const res = await axios.post(`${API_URL}/api/targets`, formData);
-      setTargets([...targets, res.data]);
+      const updatedTargets = [...targets, res.data];
+      setTargets(updatedTargets);
       
+      // دمج كل الصور في المتصفح ورفع ملف .mind للسيرفر
+      await compileAndUploadMindFile(updatedTargets);
+
       setName('');
       setImageFile(null);
       setModelFile(null);
-      e.target.reset(); // تفريغ الخانات
-      setStatus('✅ العملية تمت بنجاح! السيرفر سيقوم بدمج الصور وتحديث التطبيق الآن.');
+      e.target.reset();
     } catch (err) {
       console.error(err);
       setStatus('❌ حدث خطأ أثناء الرفع!');
@@ -61,8 +129,14 @@ function App() {
     setStatus('جاري الحذف...');
     try {
       const res = await axios.delete(`${API_URL}/api/targets/${id}`);
-      setTargets(res.data.targets);
-      setStatus('✅ تم الحذف و تحديث السيرفر بنجاح');
+      const updatedTargets = res.data.targets;
+      setTargets(updatedTargets);
+      
+      if (updatedTargets.length > 0) {
+        await compileAndUploadMindFile(updatedTargets);
+      } else {
+        setStatus('✅ تم الحذف. لا توجد صور متبقية.');
+      }
     } catch (err) {
       console.error(err);
       setStatus('❌ حدث خطأ أثناء الحذف');
@@ -74,7 +148,7 @@ function App() {
     <div className="admin-container">
       <header>
          <h1>لوحة تحكم السحابة (الإصدار الأوتوماتيكي)</h1>
-         <p>أضف الصور والمجسمات ليقوم الخادم الكلاود بدمجها فوراً للتطبيق ☁️</p>
+         <p>أضف الصور والمجسمات وسيقوم المتصفح بدمجها ورفعها تلقائياً ☁️</p>
       </header>
       
       {status && (
@@ -106,7 +180,7 @@ function App() {
           </div>
 
           <button className="btn-primary" type="submit" disabled={loading}>
-            {loading ? 'الرجاء الانتظار (يتم دمج ومعالجة الصورة في الخادم)...' : 'تسجيل و تحديث اللعبة 🤖'}
+            {loading ? 'الرجاء الانتظار (يتم الدمج والمعالجة)...' : 'تسجيل و تحديث اللعبة 🤖'}
           </button>
         </form>
       </div>
