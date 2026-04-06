@@ -3,7 +3,7 @@ import axios from 'axios';
 import './App.css';
 
 // في المرحلة الرابعة، هذا الرابط يتغير ليكون السيرفر العالمي
-const API_URL = "http://localhost:3000";
+const API_URL = "ar-app-backend-production.up.railway.app";
 
 function App() {
   const [targets, setTargets] = useState([]);
