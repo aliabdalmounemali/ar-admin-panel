@@ -14,18 +14,18 @@ function App() {
   const [status, setStatus] = useState('');
 
   useEffect(() => {
+    const fetchTargets = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/api/targets`);
+        setTargets(res.data);
+      } catch (err) {
+        console.error(err);
+        setStatus('خطأ: تأكد من تشغيل خادم Backend أولاً!');
+      }
+    };
+
     fetchTargets();
   }, []);
-
-  const fetchTargets = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/api/targets`);
-      setTargets(res.data);
-    } catch (err) {
-      console.error(err);
-      setStatus('خطأ: تأكد من تشغيل خادم Backend أولاً!');
-    }
-  };
 
   // ⭐ دالة الدمج: تدمج كل الصور في المتصفح وترفع ملف .mind للسيرفر
   const compileAndUploadMindFile = async (allTargets) => {
