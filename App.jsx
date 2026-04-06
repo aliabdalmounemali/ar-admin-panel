@@ -32,6 +32,20 @@ function App() {
     setStatus('🔄 جاري دمج الصور وإنشاء ملف التعرف (قد يستغرق 30-60 ثانية)...');
     
     try {
+      // البحث عن مكتبة MindAR Compiler في المتصفح
+      let CompilerClass = null;
+      if (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler) {
+        CompilerClass = window.MINDAR.IMAGE.Compiler;
+      } else if (window.MindARCompiler) {
+        CompilerClass = window.MindARCompiler;
+      }
+
+      if (!CompilerClass) {
+        console.error('MINDAR object:', window.MINDAR);
+        setStatus('❌ مكتبة MindAR Compiler غير محملة! تأكد من وجود السكريبت في index.html');
+        return;
+      }
+
       // جلب كل الصور الموجودة على السيرفر وتحويلها لعناصر Image
       const imageElements = [];
       for (const target of allTargets) {
@@ -39,7 +53,7 @@ function App() {
         img.crossOrigin = 'anonymous';
         await new Promise((resolve, reject) => {
           img.onload = resolve;
-          img.onerror = reject;
+          img.onerror = () => reject(new Error(`فشل تحميل الصورة: ${target.imageUrl}`));
           img.src = `${API_URL}${target.imageUrl}`;
         });
         imageElements.push(img);
@@ -48,7 +62,7 @@ function App() {
       if (imageElements.length === 0) return;
 
       // استخدام مكتبة MindAR المحملة في index.html لدمج الصور
-      const compiler = new window.MINDAR.IMAGE.Compiler();
+      const compiler = new CompilerClass();
       await compiler.compileImageTargets(imageElements, (progress) => {
         setStatus(`🔄 جاري الدمج: ${Math.round(progress)}%`);
       });
@@ -63,7 +77,7 @@ function App() {
       setStatus('✅ تم الدمج والرفع بنجاح! التطبيق جاهز للاستخدام الآن.');
     } catch (err) {
       console.error('خطأ في الدمج:', err);
-      setStatus('❌ حدث خطأ أثناء دمج الصور. حاول مرة أخرى.');
+      setStatus(`❌ خطأ في الدمج: ${err.message}`);
     }
   };
 
