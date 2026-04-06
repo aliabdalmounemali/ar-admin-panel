@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
-// في المرحلة الرابعة، هذا الرابط يتغير ليكون السيرفر العالمي
-const API_URL = "ar-app-backend-production.up.railway.app";
+// 🟢 رابط Railway الدائم
+const API_URL = "https://ar-app-backend-production.up.railway.app";
 
 function App() {
   const [targets, setTargets] = useState([]);
