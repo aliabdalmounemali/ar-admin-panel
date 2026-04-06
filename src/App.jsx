@@ -14,44 +14,40 @@ function App() {
   const [status, setStatus] = useState('');
 
   useEffect(() => {
+    const fetchTargets = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/api/targets`);
+        setTargets(res.data);
+      } catch (err) {
+        console.error(err);
+        setStatus('خطأ: تأكد من تشغيل خادم Backend أولاً!');
+      }
+    };
+
     fetchTargets();
   }, []);
-
-  const fetchTargets = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/api/targets`);
-      setTargets(res.data);
-    } catch (err) {
-      console.error(err);
-      setStatus('خطأ: تأكد من تشغيل خادم Backend أولاً!');
-    }
-  };
 
   // ⭐ دالة الدمج: تدمج كل الصور في المتصفح وترفع ملف .mind للسيرفر
   const compileAndUploadMindFile = async (allTargets) => {
     setStatus('🔄 جاري تحميل محرك الدمج...');
     
     try {
-      // تحميل المحرك ديناميكياً من حزمة mind-ar (مبنية بواسطة Vite)
-      let CompilerClass;
-      try {
-        const module = await import('mind-ar/src/image-target/compiler');
-        CompilerClass = module.Compiler;
-      } catch (e1) {
-        console.error('مسار 1 فشل:', e1);
-        try {
-          const module = await import('mind-ar/dist/mindar-image.prod.js');
-          CompilerClass = module.Compiler || (module.default && module.default.Compiler);
-        } catch (e2) {
-          console.error('مسار 2 فشل:', e2);
-          if (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler) {
-            CompilerClass = window.MINDAR.IMAGE.Compiler;
-          }
+      // التأكد من توفر مكتبة الدمج في المتصفح 
+      // (لاحظ أننا ننتظر قليلاً لو لم تكن جاهزة لأنها تُحمل كـ module)
+      let CompilerClass = null;
+      
+      let attempts = 0;
+      while(!CompilerClass && attempts < 10) {
+        if (window.MINDARObject && window.MINDARObject.Compiler) {
+           CompilerClass = window.MINDARObject.Compiler;
+        } else {
+           await new Promise(r => setTimeout(r, 500));
+           attempts++;
         }
       }
 
       if (!CompilerClass) {
-        setStatus('❌ فشل تحميل محرك MindAR! جرب تحديث الصفحة.');
+        setStatus('❌ فشل تحميل محرك MindAR! تأكد من اتصالك بالإنترنت وجرب تحديث الصفحة.');
         return;
       }
 
