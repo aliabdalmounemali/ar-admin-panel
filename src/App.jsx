@@ -3,8 +3,7 @@ import axios from 'axios';
 import './App.css';
 
 // 🟢 رابط Railway الدائم
-const API_URL = "https://ar-app-backend-production.up.railway.app";
-
+const API_URL = "https://ar-app-backend-production-3c06.up.railway.app";
 function App() {
   const [targets, setTargets] = useState([]);
   const [name, setName] = useState('');
