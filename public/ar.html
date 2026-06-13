@@ -2,22 +2,19 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <!-- جعل الصفحة بحجم شاشة الموبايل تماماً وتمنع التكبير العشوائي -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>تطبيق الواقع المعزز (AR)</title>
     
-    <!-- مكتبات الـ AR الأساسية -->
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
     
     <style>
       body { margin: 0; overflow: hidden; background-color: #000; color: white; font-family: sans-serif; }
-      /* تصميم شاشة التحميل الأولية */
       #loading {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
-        background: rgba(0,0,0,0.9); z-index: 9999;
+        background: rgba(0,0,0,0.9); z-index: 9999; cursor: pointer;
       }
       .spinner {
         border: 4px solid rgba(255,255,255,0.2); border-radius: 50%;
@@ -29,19 +26,17 @@
     </style>
   </head>
   <body>
-    <!-- شاشة التحميل قبل فتح الكاميرا -->
-    <div id="loading">
+    <!-- شاشة التحميل (مضاف لها ميزة الاختفاء عند الضغط) -->
+    <div id="loading" onclick="this.style.display='none'">
       <div class="spinner"></div>
-      <div id="loading-text">جاري الاتصال بالسيرفر وتحميل بيئة الواقع المعزز...<br><small>قد يستغرق الأمر ثواني قليلة</small></div>
+      <div id="loading-text">جاري تهيئة الكاميرا وتحميل المجسمات...<br><small>(اضغط هنا لإخفاء هذه الشاشة)</small></div>
     </div>
 
     <script>
-      // رابط الباك إند الخاص بك (تم ربطه بنجاح)
       const API_URL = "https://ar-app-backend-production-3c06.up.railway.app";
       
       async function initAR() {
         try {
-          // 1. جلب البيانات من السيرفر
           const res = await fetch(API_URL + "/api/targets");
           const targets = await res.json();
           
@@ -51,18 +46,13 @@
             return;
           }
 
-          document.getElementById('loading-text').innerText = "جاري تهيئة الكاميرا وتحميل المجسمات... الرجاء السماح باستخدام الكاميرا.";
-
-          // 2. إنشاء المشهد (Scene) برمجياً لربطه بملف السحابة
           const scene = document.createElement('a-scene');
-          // ربط ملف targets.mind
           scene.setAttribute('mindar-image', `imageTargetSrc: ${API_URL}/uploads/targets.mind; filterMinCF:0.0001; filterBeta: 0.001;`);
           scene.setAttribute('color-space', 'sRGB');
           scene.setAttribute('renderer', 'colorManagement: true, physicallyCorrectLights');
           scene.setAttribute('vr-mode-ui', 'enabled: false');
           scene.setAttribute('device-orientation-permission-ui', 'enabled: false');
           
-          // 3. تعريف المجسمات (Assets)
           const assets = document.createElement('a-assets');
           targets.forEach(t => {
             const assetItem = document.createElement('a-asset-item');
@@ -72,42 +62,46 @@
           });
           scene.appendChild(assets);
 
-          // 4. تعريف الكاميرا
           const camera = document.createElement('a-camera');
           camera.setAttribute('position', '0 0 0');
           camera.setAttribute('look-controls', 'enabled: false');
           scene.appendChild(camera);
 
-          // 5. ربط كل مجسم بالصورة الخاصة به (Target)
           targets.forEach(t => {
             const entity = document.createElement('a-entity');
             entity.setAttribute('mindar-image-target', 'targetIndex: ' + t.index);
             
             const model = document.createElement('a-gltf-model');
             model.setAttribute('src', '#model-' + t.index);
-            // إعدادات الحجم المبدئي (يمكننا تعديلها لاحقاً في مرحلة تحسين الواجهة)
+            // إعدادات الحجم المبدئي
             model.setAttribute('scale', '0.5 0.5 0.5'); 
             model.setAttribute('position', '0 0 0');
             model.setAttribute('rotation', '0 0 0');
-            model.setAttribute('animation-mixer', ''); // إذا كان المجسم يتحرك
+            model.setAttribute('animation-mixer', ''); 
             
             entity.appendChild(model);
             scene.appendChild(entity);
           });
 
-          // 6. إضافة المشهد للصفحة للبدء
-          document.body.appendChild(scene);
-
-          // إخفاء شاشة التحميل بمجرد أن تصبح الكاميرا جاهزة للعمل
+          // إضافة حدث الإخفاء قبل تشغيل المشهد لضمان عمله
           scene.addEventListener('arReady', () => {
              document.getElementById('loading').style.display = 'none';
           });
-          
-          // في حال رفض المستخدم إعطاء صلاحية الكاميرا
+          scene.addEventListener('loaded', () => {
+             document.getElementById('loading').style.display = 'none';
+          });
           scene.addEventListener('arError', () => {
              document.getElementById('loading-text').innerHTML = "فشل في تشغيل الكاميرا! <br> تأكد من إعطاء صلاحية الكاميرا للمتصفح.";
              document.querySelector('.spinner').style.display = 'none';
           });
+
+          document.body.appendChild(scene);
+
+          // إخفاء إجباري كحد أقصى بعد 6 ثواني لضمان عدم تعليق الشاشة
+          setTimeout(() => {
+            const loader = document.getElementById('loading');
+            if(loader) loader.style.display = 'none';
+          }, 6000);
 
         } catch (err) {
           console.error(err);
@@ -116,7 +110,6 @@
         }
       }
 
-      // تشغيل الكود
       initAR();
     </script>
   </body>
