@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- جعل الصفحة بحجم شاشة الموبايل تماماً وتمنع التكبير العشوائي -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>تطبيق الواقع المعزز (AR)</title>
+    
+    <!-- مكتبات الـ AR الأساسية -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+    
+    <style>
+      body { margin: 0; overflow: hidden; background-color: #000; color: white; font-family: sans-serif; }
+      /* تصميم شاشة التحميل الأولية */
+      #loading {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        background: rgba(0,0,0,0.9); z-index: 9999;
+      }
+      .spinner {
+        border: 4px solid rgba(255,255,255,0.2); border-radius: 50%;
+        border-top: 4px solid #007bff; width: 50px; height: 50px;
+        animation: spin 1s linear infinite; margin-bottom: 20px;
+      }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      #loading-text { font-size: 18px; text-align: center; padding: 0 20px; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <!-- شاشة التحميل قبل فتح الكاميرا -->
+    <div id="loading">
+      <div class="spinner"></div>
+      <div id="loading-text">جاري الاتصال بالسيرفر وتحميل بيئة الواقع المعزز...<br><small>قد يستغرق الأمر ثواني قليلة</small></div>
+    </div>
+
+    <script>
+      // رابط الباك إند الخاص بك (تم ربطه بنجاح)
+      const API_URL = "https://ar-app-backend-production-3c06.up.railway.app";
+      
+      async function initAR() {
+        try {
+          // 1. جلب البيانات من السيرفر
+          const res = await fetch(API_URL + "/api/targets");
+          const targets = await res.json();
+          
+          if (!targets || targets.length === 0) {
+            document.getElementById('loading-text').innerText = "لا توجد أي مجسمات مسجلة حالياً! قم برفعها من لوحة التحكم.";
+            document.querySelector('.spinner').style.display = 'none';
+            return;
+          }
+
+          document.getElementById('loading-text').innerText = "جاري تهيئة الكاميرا وتحميل المجسمات... الرجاء السماح باستخدام الكاميرا.";
+
+          // 2. إنشاء المشهد (Scene) برمجياً لربطه بملف السحابة
+          const scene = document.createElement('a-scene');
+          // ربط ملف targets.mind
+          scene.setAttribute('mindar-image', `imageTargetSrc: ${API_URL}/uploads/targets.mind; filterMinCF:0.0001; filterBeta: 0.001;`);
+          scene.setAttribute('color-space', 'sRGB');
+          scene.setAttribute('renderer', 'colorManagement: true, physicallyCorrectLights');
+          scene.setAttribute('vr-mode-ui', 'enabled: false');
+          scene.setAttribute('device-orientation-permission-ui', 'enabled: false');
+          
+          // 3. تعريف المجسمات (Assets)
+          const assets = document.createElement('a-assets');
+          targets.forEach(t => {
+            const assetItem = document.createElement('a-asset-item');
+            assetItem.setAttribute('id', 'model-' + t.index);
+            assetItem.setAttribute('src', API_URL + t.modelUrl);
+            assets.appendChild(assetItem);
+          });
+          scene.appendChild(assets);
+
+          // 4. تعريف الكاميرا
+          const camera = document.createElement('a-camera');
+          camera.setAttribute('position', '0 0 0');
+          camera.setAttribute('look-controls', 'enabled: false');
+          scene.appendChild(camera);
+
+          // 5. ربط كل مجسم بالصورة الخاصة به (Target)
+          targets.forEach(t => {
+            const entity = document.createElement('a-entity');
+            entity.setAttribute('mindar-image-target', 'targetIndex: ' + t.index);
+            
+            const model = document.createElement('a-gltf-model');
+            model.setAttribute('src', '#model-' + t.index);
+            // إعدادات الحجم المبدئي (يمكننا تعديلها لاحقاً في مرحلة تحسين الواجهة)
+            model.setAttribute('scale', '0.5 0.5 0.5'); 
+            model.setAttribute('position', '0 0 0');
+            model.setAttribute('rotation', '0 0 0');
+            model.setAttribute('animation-mixer', ''); // إذا كان المجسم يتحرك
+            
+            entity.appendChild(model);
+            scene.appendChild(entity);
+          });
+
+          // 6. إضافة المشهد للصفحة للبدء
+          document.body.appendChild(scene);
+
+          // إخفاء شاشة التحميل بمجرد أن تصبح الكاميرا جاهزة للعمل
+          scene.addEventListener('arReady', () => {
+             document.getElementById('loading').style.display = 'none';
+          });
+          
+          // في حال رفض المستخدم إعطاء صلاحية الكاميرا
+          scene.addEventListener('arError', () => {
+             document.getElementById('loading-text').innerHTML = "فشل في تشغيل الكاميرا! <br> تأكد من إعطاء صلاحية الكاميرا للمتصفح.";
+             document.querySelector('.spinner').style.display = 'none';
+          });
+
+        } catch (err) {
+          console.error(err);
+          document.getElementById('loading-text').innerText = "حدث خطأ أثناء الاتصال بالسيرفر.";
+          document.querySelector('.spinner').style.display = 'none';
+        }
+      }
+
+      // تشغيل الكود
+      initAR();
+    </script>
+  </body>
+</html>
