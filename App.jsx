@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
-// رابط Railway الصحيح والجديد
 const API_URL = "https://ar-app-backend-production-3c06.up.railway.app";
 
 function App() {
@@ -23,16 +22,14 @@ function App() {
         setStatus('خطأ: تأكد من تشغيل خادم Backend أولاً!');
       }
     };
-
     fetchTargets();
   }, []);
 
   const compileAndUploadMindFile = async (allTargets) => {
-    setStatus('جاري تجميع ملف التعرف...');
+    setStatus('جاري تجهيز الصور للذكاء الاصطناعي...');
     
     try {
       let CompilerClass = null;
-      
       let attempts = 0;
       while(!CompilerClass && attempts < 10) {
         if (window.MINDARObject && window.MINDARObject.Compiler) {
@@ -48,7 +45,7 @@ function App() {
         return;
       }
 
-      setStatus('جاري دمج الصور وتكوين ملف السحابة (قد يستغرق 30-60 ثانية)...');
+      setStatus('جاري دمج الصور وتكوين ملف السحابة...');
 
       const imageElements = [];
       for (const target of allTargets) {
@@ -59,16 +56,43 @@ function App() {
           img.onerror = () => reject(new Error(`فشل تحميل الصورة: ${target.imageUrl}`));
           img.src = `${API_URL}${target.imageUrl}`;
         });
-        imageElements.push(img);
+
+        // تصغير الصورة برمجياً لمنع تعليق المتصفح وتسريع المعالجة 10 أضعاف
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const MAX_WIDTH = 800; // أقصى عرض للتحليل
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const resizedImg = new Image();
+        await new Promise((resolve) => {
+           resizedImg.onload = resolve;
+           resizedImg.src = canvas.toDataURL('image/jpeg', 0.8);
+        });
+
+        imageElements.push(resizedImg);
       }
 
       if (imageElements.length === 0) return;
 
       const compiler = new CompilerClass();
+      
+      // لتفادي تجميد الواجهة، نستخدم setTimeout
+      await new Promise(r => setTimeout(r, 100));
+
       await compiler.compileImageTargets(imageElements, (progress) => {
-        setStatus(`جاري التجميع: ${Math.round(progress)}%`);
+        setStatus(`جاري تحليل الذكاء الاصطناعي: ${Math.round(progress)}%`);
       });
 
+      setStatus('جاري رفع السحابة للسيرفر...');
       const exportedBuffer = await compiler.exportData();
       const blob = new Blob([exportedBuffer]);
       const mindFormData = new FormData();
@@ -113,7 +137,7 @@ function App() {
   };
 
   const handleDelete = async (id) => {
-    if(!window.confirm('هل أنت متأكد أنك تريد حذف هذا المجسم؟ (لا يمكن التراجع عن هذا القرار).')) return;
+    if(!window.confirm('هل أنت متأكد أنك تريد حذف هذا المجسم؟')) return;
     setLoading(true);
     setStatus('جاري الحذف...');
     try {
@@ -137,7 +161,7 @@ function App() {
     <div className="admin-container">
       <header>
          <h1>لوحة تحكم السحابة (محدث ✅)</h1>
-         <p>أضف الصور والمجسمات وسيقوم المتصفح بدمجها ورفعها تلقائياً إلى</p>
+         <p>أضف الصور والمجسمات وسيقوم المتصفح بدمجها ورفعها تلقائياً</p>
       </header>
       
       {status && (
@@ -158,7 +182,7 @@ function App() {
             <div className="input-group">
               <label>صورة الهدف (.jpg, .png)</label>
               <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} required />
-              <small>الصورة التي يوجه المستخدم لها الكاميرا</small>
+              <small>يفضل ألا تزيد دقة الصورة عن عادية</small>
             </div>
             
             <div className="input-group">
