@@ -47,7 +47,7 @@
           }
 
           const scene = document.createElement('a-scene');
-          scene.setAttribute('mindar-image', `imageTargetSrc: ${API_URL}/uploads/targets.mind; filterMinCF:0.0001; filterBeta: 0.001;`);
+          scene.setAttribute('mindar-image', `imageTargetSrc: ${API_URL}/uploads/targets.mind; filterMinCF:0.05; filterBeta: 10;`);
           scene.setAttribute('color-space', 'sRGB');
           scene.setAttribute('renderer', 'colorManagement: true, physicallyCorrectLights');
           scene.setAttribute('vr-mode-ui', 'enabled: false');
