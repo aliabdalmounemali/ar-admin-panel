@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
-// 🟢 رابط Railway الدائم
+// رابط Railway الصحيح والجديد
 const API_URL = "https://ar-app-backend-production-3c06.up.railway.app";
 
 function App() {
@@ -27,13 +27,10 @@ function App() {
     fetchTargets();
   }, []);
 
-  // ⭐ دالة الدمج: تدمج كل الصور في المتصفح وترفع ملف .mind للسيرفر
   const compileAndUploadMindFile = async (allTargets) => {
-    setStatus('🔄 جاري تحميل محرك الدمج...');
+    setStatus('جاري تجميع ملف التعرف...');
     
     try {
-      // التأكد من توفر مكتبة الدمج في المتصفح 
-      // (لاحظ أننا ننتظر قليلاً لو لم تكن جاهزة لأنها تُحمل كـ module)
       let CompilerClass = null;
       
       let attempts = 0;
@@ -47,13 +44,12 @@ function App() {
       }
 
       if (!CompilerClass) {
-        setStatus('❌ فشل تحميل محرك MindAR! تأكد من اتصالك بالإنترنت وجرب تحديث الصفحة.');
+        setStatus('لم يتم تحميل مكتبة MindAR! تأكد من اتصالك بالإنترنت وأعد تحميل الصفحة.');
         return;
       }
 
-      setStatus('🔄 جاري دمج الصور وإنشاء ملف التعرف (قد يستغرق 30-60 ثانية)...');
+      setStatus('جاري دمج الصور وتكوين ملف السحابة (قد يستغرق 30-60 ثانية)...');
 
-      // جلب كل الصور الموجودة على السيرفر وتحويلها لعناصر Image
       const imageElements = [];
       for (const target of allTargets) {
         const img = new Image();
@@ -68,35 +64,33 @@ function App() {
 
       if (imageElements.length === 0) return;
 
-      // استخدام محرك MindAR لدمج الصور
       const compiler = new CompilerClass();
       await compiler.compileImageTargets(imageElements, (progress) => {
-        setStatus(`🔄 جاري الدمج: ${Math.round(progress)}%`);
+        setStatus(`جاري التجميع: ${Math.round(progress)}%`);
       });
 
-      // تصدير الملف النهائي ورفعه للسيرفر
       const exportedBuffer = await compiler.exportData();
       const blob = new Blob([exportedBuffer]);
       const mindFormData = new FormData();
       mindFormData.append('mind', blob, 'targets.mind');
 
       await axios.post(`${API_URL}/api/compile`, mindFormData);
-      setStatus('✅ تم الدمج والرفع بنجاح! التطبيق جاهز للاستخدام الآن.');
+      setStatus('✅ تم تحديث التعرف بنجاح! التطبيق جاهز للاستخدام الآن.');
     } catch (err) {
-      console.error('خطأ في الدمج:', err);
-      setStatus(`❌ خطأ في الدمج: ${err.message}`);
+      console.error('خطأ في التجميع:', err);
+      setStatus(`❌ فشل في التجميع: ${err.message}`);
     }
   };
 
   const handleTargetUpload = async (e) => {
     e.preventDefault();
-    if (!imageFile || !modelFile) return alert('يجب اختيار صورة لتعرف الكاميرا عليها ومجسم لعرضه');
+    if (!imageFile || !modelFile) return alert('يجب اختيار صورة ومجسم (Model) لإتمام عملية الرفع');
     
     setLoading(true);
-    setStatus('جاري رفع الملفات للسيرفر...');
+    setStatus('جاري رفع البيانات للسيرفر...');
 
     const formData = new FormData();
-    formData.append('name', name || `عنصر ${targets.length + 1}`);
+    formData.append('name', name || `مُجسم ${targets.length + 1}`);
     formData.append('image', imageFile);
     formData.append('model', modelFile);
 
@@ -105,7 +99,6 @@ function App() {
       const updatedTargets = [...targets, res.data];
       setTargets(updatedTargets);
       
-      // دمج كل الصور في المتصفح ورفع ملف .mind للسيرفر
       await compileAndUploadMindFile(updatedTargets);
 
       setName('');
@@ -120,7 +113,7 @@ function App() {
   };
 
   const handleDelete = async (id) => {
-    if(!window.confirm('هل تريد حذف هذه الصورة؟ سيتم إزالتها من التطبيق للكل.')) return;
+    if(!window.confirm('هل أنت متأكد أنك تريد حذف هذا المجسم؟ (لا يمكن التراجع عن هذا القرار).')) return;
     setLoading(true);
     setStatus('جاري الحذف...');
     try {
@@ -131,7 +124,7 @@ function App() {
       if (updatedTargets.length > 0) {
         await compileAndUploadMindFile(updatedTargets);
       } else {
-        setStatus('✅ تم الحذف. لا توجد صور متبقية.');
+        setStatus('تم الحذف. لا توجد أي مجسمات.');
       }
     } catch (err) {
       console.error(err);
@@ -143,8 +136,8 @@ function App() {
   return (
     <div className="admin-container">
       <header>
-         <h1>لوحة تحكم السحابة (الإصدار الأوتوماتيكي)</h1>
-         <p>أضف الصور والمجسمات وسيقوم المتصفح بدمجها ورفعها تلقائياً ☁️</p>
+         <h1>لوحة تحكم السحابة (محدث ✅)</h1>
+         <p>أضف الصور والمجسمات وسيقوم المتصفح بدمجها ورفعها تلقائياً إلى</p>
       </header>
       
       {status && (
@@ -158,7 +151,7 @@ function App() {
         <form onSubmit={handleTargetUpload}>
           <div className="input-group">
             <label>اسم الارتباط للتنظيم:</label>
-            <input type="text" placeholder="مثال: غلاف كتاب" value={name} onChange={e => setName(e.target.value)} />
+            <input type="text" placeholder="مثال: هاتف, كتاب" value={name} onChange={e => setName(e.target.value)} />
           </div>
           
           <div className="input-row">
@@ -176,27 +169,27 @@ function App() {
           </div>
 
           <button className="btn-primary" type="submit" disabled={loading}>
-            {loading ? 'الرجاء الانتظار (يتم الدمج والمعالجة)...' : 'تسجيل و تحديث اللعبة 🤖'}
+            {loading ? 'الرجاء الانتظار (يتم معالجة البيانات)...' : 'تسجيل و تحديث اللعبة 🤖'}
           </button>
         </form>
       </div>
 
       <div className="targets-list card">
-        <h2>المجسمات المسجلة تعمل حالياً ({targets.length})</h2>
+        <h2>المجسمات المسجلة تعمل حاليا ({targets.length})</h2>
         <div className="grid">
           {targets.map(t => (
             <div key={t.id} className="target-card">
               <div className="img-wrapper">
                  <img src={API_URL + t.imageUrl} alt={t.name} />
-                 <span className="index-badge">المؤشر: {t.index}</span>
+                 <span className="index-badge">فهرس: {t.index}</span>
               </div>
               <div className="info">
                 <h3>{t.name}</h3>
-                <button onClick={() => handleDelete(t.id)} className="btn-danger" disabled={loading}>حذف نهائي</button>
+                <button onClick={() => handleDelete(t.id)} className="btn-danger" disabled={loading}>حذف المجسم</button>
               </div>
             </div>
           ))}
-          {targets.length === 0 && <p className="empty-text">لا توجد أي صور حالياً، التطبيق فارغ.</p>}
+          {targets.length === 0 && <p className="empty-text">لا توجد أي صور حالياً. التطبيق فارغ.</p>}
         </div>
       </div>
     </div>
