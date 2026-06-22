@@ -75,7 +75,6 @@ function App() {
 
       await compileAndUploadMindFile(allTargets);
 
-      // تفريغ الحقول بعد النجاح
       setImageFile(null);
       setModelFile(null);
       setName('');
@@ -165,13 +164,13 @@ function App() {
   return (
     <div className="admin-container">
       <div className="header">
-        <h1>لوحة التحكم السحابية</h1>
-        <p>إدارة المجسمات والفيديوهات لتطبيق الواقع المعزز بسهولة وأمان</p>
+        <h1>Spotter <span>AR</span> Admin</h1>
+        <p>مركز التحكم السحابي لإدارة تجارب الواقع المعزز</p>
       </div>
 
       {status && <div className="status-bar">{status}</div>}
 
-      <div className="upload-card">
+      <div className="glass-card">
         <h2>إضافة ارتباط جديد للمنظومة</h2>
         
         <div className="input-group">
@@ -199,7 +198,7 @@ function App() {
             <p>الصورة التي سيتم توجيه الكاميرا إليها</p>
           </div>
 
-          <div className="file-box" style={{ borderColor: modelFile?.name.endsWith('.mp4') ? '#8b5cf6' : '' }}>
+          <div className="file-box" style={{ borderColor: modelFile?.name.endsWith('.mp4') ? '#74c356' : '' }}>
             <label>الملف المعروض (.glb أو .mp4)</label>
             <input 
               id="modelInput" 
@@ -217,24 +216,18 @@ function App() {
           onClick={handleUpload} 
           disabled={isProcessing || !imageFile || !modelFile || !name}
         >
-          {isProcessing ? 'الرجاء الانتظار (يتم المعالجة)...' : 'رفع ودمج البيانات'}
+          <span>{isProcessing ? 'الرجاء الانتظار (يتم المعالجة)...' : 'رفع ودمج البيانات'}</span>
         </button>
       </div>
 
-      <div className="targets-section">
+      <div className="glass-card">
         <h2>الأهداف المسجلة حالياً ({targets.length})</h2>
         <div className="targets-grid">
           {targets.map(target => (
             <div key={target.id} className="target-card">
               <div className="card-header">
                 <span className="index-badge">فهرس: {target.index}</span>
-                {/* شارة توضح نوع الملف */}
-                <span style={{
-                  position: 'absolute', top: '10px', left: '10px', 
-                  background: target.mediaType === 'video' ? '#8b5cf6' : '#10b981', 
-                  color: 'white', padding: '4px 10px', borderRadius: '20px', 
-                  fontSize: '12px', fontWeight: 'bold'
-                }}>
+                <span className={`badge ${target.mediaType === 'video' ? 'badge-video' : 'badge-3d'}`}>
                   {target.mediaType === 'video' ? '🎥 فيديو' : '📦 مجسم 3D'}
                 </span>
                 
