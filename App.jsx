@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
-const API_URL = "httpar-app-backend-production-de6e.up.railway.app";
+const API_URL = "https://ar-app-backend-production-de6e.up.railway.app";
 
 function App() {
   const [targets, setTargets] = useState([]);
